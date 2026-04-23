@@ -1,15 +1,15 @@
-// Package starter provides the core functionality for the golang-starter application.
+// Package starter provides the core functionality for the go-find-archived-gh-actions application.
 //
 // This package contains the main business logic that demonstrates a simple greeting
 // functionality. It serves as a template for implementing core application features
-// in a golang-starter project.
+// in a go-find-archived-gh-actions project.
 //
 // The package is designed to be called from the command-line interface and can
 // be easily extended with additional functionality as needed for specific use cases.
 //
 // Example usage:
 //
-//	import "github.com/toozej/golang-starter/internal/starter"
+//	import "github.com/toozej/go-find-archived-gh-actions/internal/starter"
 //
 //	func main() {
 //		starter.Run("Alice")

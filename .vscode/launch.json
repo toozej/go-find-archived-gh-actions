@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Run golang-starter",
+            "name": "Run go-find-archived-gh-actions",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -12,7 +12,7 @@
             "args": []
         },
         {
-            "name": "Get golang-starter version",
+            "name": "Get go-find-archived-gh-actions version",
             "type": "go",
             "request": "launch",
             "mode": "auto",

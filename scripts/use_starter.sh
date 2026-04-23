@@ -113,7 +113,7 @@ if [[ $# -lt 1 ]]; then
     handle_error "Usage: $0 <new_project_name> [github_username]"
 fi
 
-OLD_PROJECT_NAME="golang-starter"
+OLD_PROJECT_NAME="go-find-archived-gh-actions"
 NEW_PROJECT_NAME="${1}"
 GITHUB_USERNAME="${2:-toozej}"
 
@@ -131,7 +131,7 @@ EOF
 echo "Updating project from ${OLD_PROJECT_NAME} to ${NEW_PROJECT_NAME}..."
 
 # Truncate existing CREDITS.md file and replace its contents with link to template repo's CREDITS.md file
-echo -e "# Credits and Acknowledgements\n\n- https://raw.githubusercontent.com/toozej/golang-starter/main/CREDITS.md" > CREDITS.md
+echo -e "# Credits and Acknowledgements\n\n- https://raw.githubusercontent.com/toozej/go-find-archived-gh-actions/main/CREDITS.md" > CREDITS.md
 
 # Remove old public key if it exists
 rm -f "./${OLD_PROJECT_NAME}.pub" || handle_error "Failed to remove ${OLD_PROJECT_NAME}.pub"
@@ -148,7 +148,8 @@ grep --exclude-dir=.git --exclude ./CREDITS.md -rl "${OLD_PROJECT_NAME}" . | xar
 
 # Randomize minute for CI/CD GitHub Actions pipeline executes on Sunday evenings
 RAND_MIN=$((RANDOM % 60))
-sed -i "s/0 1 \* \* 1/${RAND_MIN} 1 * * 1/" .github/workflows/cicd.yaml
+sed -i "s/0 1 \* \* 1/${RAND_MIN} 1 * * 1/" .github/workflows/ci.yaml
+sed -i "s/23 3 \* \* 1/${RAND_MIN} 3 * * 1/" .github/workflows/weekly-docker-refresh.yaml
 
 # Show git diff to allow verification of changes
 git diff || handle_error "Failed to show git diff."

@@ -1,10 +1,12 @@
-# golang-starter
+# go-find-archived-gh-actions
 
-![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/toozej/golang-starter)
-[![Go Report Card](https://goreportcard.com/badge/github.com/toozej/golang-starter)](https://goreportcard.com/report/github.com/toozej/golang-starter)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/toozej/golang-starter/cicd.yaml)
-![Docker Pulls](https://img.shields.io/docker/pulls/toozej/golang-starter)
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/toozej/golang-starter/total)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/toozej/go-find-archived-gh-actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/toozej/go-find-archived-gh-actions)](https://goreportcard.com/report/github.com/toozej/go-find-archived-gh-actions)
+![GitHub Actions CI Workflow Status](https://img.shields.io/github/actions/workflow/status/toozej/go-find-archived-gh-actions/ci.yaml)
+![GitHub Actions Release Workflow Status](https://img.shields.io/github/actions/workflow/status/toozej/go-find-archived-gh-actions/release.yaml)
+![GitHub Actions Weekly Docker Refresh Workflow Status](https://img.shields.io/github/actions/workflow/status/toozej/go-find-archived-gh-actions/weekly-docker-refresh.yaml)
+![Docker Pulls](https://img.shields.io/docker/pulls/toozej/go-find-archived-gh-actions)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/toozej/go-find-archived-gh-actions/total)
 
 Golang starter template
 

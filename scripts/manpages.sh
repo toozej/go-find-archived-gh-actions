@@ -2,4 +2,4 @@
 set -e
 rm -rf manpages
 mkdir manpages
-go run ./cmd/golang-starter/ man | gzip -c -9 >manpages/golang-starter.1.gz
+go run ./cmd/go-find-archived-gh-actions/ man | gzip -c -9 >manpages/go-find-archived-gh-actions.1.gz

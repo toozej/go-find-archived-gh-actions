@@ -2,8 +2,8 @@
 FROM gcr.io/distroless/static-debian12:latest
 # Copy our static executable.
 ARG TARGETPLATFORM
-COPY $TARGETPLATFORM/golang-starter /go/bin/golang-starter
+COPY $TARGETPLATFORM/go-find-archived-gh-actions /go/bin/go-find-archived-gh-actions
 # Expose port for publishing as web service
 # EXPOSE 8081
 # Run the binary.
-ENTRYPOINT ["/go/bin/golang-starter"]
+ENTRYPOINT ["/go/bin/go-find-archived-gh-actions"]

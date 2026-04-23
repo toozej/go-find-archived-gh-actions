@@ -1,5 +1,5 @@
 # Cosign
-golang-starter.key
+go-find-archived-gh-actions.key
 cosign.key
 *.sig
 

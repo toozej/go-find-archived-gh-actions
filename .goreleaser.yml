@@ -1,7 +1,7 @@
 ---
 version: 2
 
-project_name: golang-starter
+project_name: go-find-archived-gh-actions
 
 env:
   - GO111MODULE=on
@@ -43,7 +43,7 @@ builds:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate
         }} -X main.builtBy=goreleaser
     main: ./
-    binary: golang-starter
+    binary: go-find-archived-gh-actions
 
 universal_binaries:
   - replace: false
@@ -80,11 +80,11 @@ changelog:
       order: 9999
 
 dockers_v2:
-  - id: golang-starter
+  - id: go-find-archived-gh-actions
     images:
-      - 'toozej/golang-starter'
-      - 'ghcr.io/toozej/golang-starter'
-      - 'quay.io/toozej/golang-starter'
+      - 'toozej/go-find-archived-gh-actions'
+      - 'ghcr.io/toozej/go-find-archived-gh-actions'
+      - 'quay.io/toozej/go-find-archived-gh-actions'
     tags:
       - '{{ if ne (envOrDefault "GORELEASER_DOCKER_REFRESH" "false") "true" }}v{{ .Version
         }}{{ end }}'
@@ -93,7 +93,7 @@ dockers_v2:
       - "latest"
     dockerfile: Dockerfile.goreleaser
     labels:
-      "io.artifacthub.package.readme-url": "https://raw.githubusercontent.com/toozej/golang-starter/main/README.md"
+      "io.artifacthub.package.readme-url": "https://raw.githubusercontent.com/toozej/go-find-archived-gh-actions/main/README.md"
       "io.artifacthub.package.maintainers": "[{\"name\":\"toozej\"}]"
       "io.artifacthub.package.license": "GPLv3"
       "org.opencontainers.image.description": "Golang starter template"
@@ -103,7 +103,7 @@ dockers_v2:
       "org.opencontainers.image.version": "{{.Version}}"
       "org.opencontainers.image.source": "{{.GitURL}}"
       "org.opencontainers.image.authors": "James Tooze https://github.com/toozej/"
-      "org.opencontainers.image.documentation": "https://raw.githubusercontent.com/toozej/golang-starter/main/README.md"
+      "org.opencontainers.image.documentation": "https://raw.githubusercontent.com/toozej/go-find-archived-gh-actions/main/README.md"
       "org.opencontainers.image.licenses": "GPL-3.0-only"
       "org.opencontainers.image.title": "{{.ProjectName}}"
       "org.opencontainers.image.vendor": "James Tooze"
@@ -111,20 +111,20 @@ dockers_v2:
       "index,manifest:org.opencontainers.image.authors": "James Tooze https://github.com/toozej/"
       "index,manifest:org.opencontainers.image.created": "{{.Date}}"
       "index,manifest:org.opencontainers.image.description": "Golang starter template"
-      "index,manifest:org.opencontainers.image.documentation": "https://raw.githubusercontent.com/toozej/golang-starter/main/README.md"
+      "index,manifest:org.opencontainers.image.documentation": "https://raw.githubusercontent.com/toozej/go-find-archived-gh-actions/main/README.md"
       "index,manifest:org.opencontainers.image.licenses": "GPL-3.0-only"
       "index,manifest:org.opencontainers.image.revision": "{{.FullCommit}}"
-      "index,manifest:org.opencontainers.image.source": "https://github.com/toozej/golang-starter"
+      "index,manifest:org.opencontainers.image.source": "https://github.com/toozej/go-find-archived-gh-actions"
       "index,manifest:org.opencontainers.image.title": "{{.ProjectName}}"
       "index,manifest:org.opencontainers.image.vendor": "James Tooze"
       "index,manifest:org.opencontainers.image.version": "{{.Version}}"
     extra_files:
       - scripts/goreleaser_entrypoint.sh
-  - id: golang-starter-distroless
+  - id: go-find-archived-gh-actions-distroless
     images:
-      - 'toozej/golang-starter'
-      - 'ghcr.io/toozej/golang-starter'
-      - 'quay.io/toozej/golang-starter'
+      - 'toozej/go-find-archived-gh-actions'
+      - 'ghcr.io/toozej/go-find-archived-gh-actions'
+      - 'quay.io/toozej/go-find-archived-gh-actions'
     tags:
       - '{{ if ne (envOrDefault "GORELEASER_DOCKER_REFRESH" "false") "true" }}v{{ .Version
         }}-distroless{{ end }}'
@@ -133,7 +133,7 @@ dockers_v2:
       - "distroless"
     dockerfile: Dockerfile.goreleaser.distroless
     labels:
-      "io.artifacthub.package.readme-url": "https://raw.githubusercontent.com/toozej/golang-starter/main/README.md"
+      "io.artifacthub.package.readme-url": "https://raw.githubusercontent.com/toozej/go-find-archived-gh-actions/main/README.md"
       "io.artifacthub.package.maintainers": "[{\"name\":\"toozej\"}]"
       "io.artifacthub.package.license": "GPLv3"
       "org.opencontainers.image.description": "Golang starter template"
@@ -143,7 +143,7 @@ dockers_v2:
       "org.opencontainers.image.version": "{{.Version}}"
       "org.opencontainers.image.source": "{{.GitURL}}"
       "org.opencontainers.image.authors": "James Tooze https://github.com/toozej/"
-      "org.opencontainers.image.documentation": "https://raw.githubusercontent.com/toozej/golang-starter/main/README.md"
+      "org.opencontainers.image.documentation": "https://raw.githubusercontent.com/toozej/go-find-archived-gh-actions/main/README.md"
       "org.opencontainers.image.licenses": "GPL-3.0-only"
       "org.opencontainers.image.title": "{{.ProjectName}}"
       "org.opencontainers.image.vendor": "James Tooze"
@@ -151,10 +151,10 @@ dockers_v2:
       "index,manifest:org.opencontainers.image.authors": "James Tooze https://github.com/toozej/"
       "index,manifest:org.opencontainers.image.created": "{{.Date}}"
       "index,manifest:org.opencontainers.image.description": "Golang starter template"
-      "index,manifest:org.opencontainers.image.documentation": "https://raw.githubusercontent.com/toozej/golang-starter/main/README.md"
+      "index,manifest:org.opencontainers.image.documentation": "https://raw.githubusercontent.com/toozej/go-find-archived-gh-actions/main/README.md"
       "index,manifest:org.opencontainers.image.licenses": "GPL-3.0-only"
       "index,manifest:org.opencontainers.image.revision": "{{.FullCommit}}"
-      "index,manifest:org.opencontainers.image.source": "https://github.com/toozej/golang-starter"
+      "index,manifest:org.opencontainers.image.source": "https://github.com/toozej/go-find-archived-gh-actions"
       "index,manifest:org.opencontainers.image.title": "{{.ProjectName}}"
       "index,manifest:org.opencontainers.image.vendor": "James Tooze"
       "index,manifest:org.opencontainers.image.version": "{{.Version}}"
@@ -180,33 +180,33 @@ archives:
 nfpms:
   - file_name_template: '{{ .ConventionalFileName }}'
     id: packages
-    homepage: https://github.com/toozej/golang-starter
+    homepage: https://github.com/toozej/go-find-archived-gh-actions
     description: |-
       Golang starter template
     maintainer: toozej
     license: GPLv3
-    vendor: golang-starter
+    vendor: go-find-archived-gh-actions
     bindir: /usr/bin
     section: utils
     contents:
-      - src: ./completions/golang-starter.bash
-        dst: /usr/share/bash-completion/completions/golang-starter
+      - src: ./completions/go-find-archived-gh-actions.bash
+        dst: /usr/share/bash-completion/completions/go-find-archived-gh-actions
         file_info:
           mode: 0644
-      - src: ./completions/golang-starter.fish
-        dst: /usr/share/fish/completions/golang-starter.fish
+      - src: ./completions/go-find-archived-gh-actions.fish
+        dst: /usr/share/fish/completions/go-find-archived-gh-actions.fish
         file_info:
           mode: 0644
-      - src: ./completions/golang-starter.zsh
-        dst: /usr/share/zsh/vendor-completions/_golang-starter
+      - src: ./completions/go-find-archived-gh-actions.zsh
+        dst: /usr/share/zsh/vendor-completions/_go-find-archived-gh-actions
         file_info:
           mode: 0644
-      - src: ./manpages/golang-starter.1.gz
-        dst: /usr/share/man/man1/golang-starter.1.gz
+      - src: ./manpages/go-find-archived-gh-actions.1.gz
+        dst: /usr/share/man/man1/go-find-archived-gh-actions.1.gz
         file_info:
           mode: 0644
       - src: ./LICENSE
-        dst: /usr/share/doc/golang-starter/copyright
+        dst: /usr/share/doc/go-find-archived-gh-actions/copyright
         file_info:
           mode: 0644
     formats:
@@ -223,8 +223,8 @@ nfpms:
         - changelog-file-missing-in-native-package
 
 homebrew_casks:
-  - name: golang-starter
-    homepage: https://github.com/toozej/golang-starter
+  - name: go-find-archived-gh-actions
+    homepage: https://github.com/toozej/go-find-archived-gh-actions
     description: "Golang starter template"
     license: GPLv3
     repository:
@@ -232,18 +232,18 @@ homebrew_casks:
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     manpages:
-      - "manpages/golang-starter.1.gz"
+      - "manpages/go-find-archived-gh-actions.1.gz"
     completions:
-      bash: "completions/golang-starter.bash"
-      zsh: "completions/golang-starter.zsh"
-      fish: "completions/golang-starter.fish"
+      bash: "completions/go-find-archived-gh-actions.bash"
+      zsh: "completions/go-find-archived-gh-actions.zsh"
+      fish: "completions/go-find-archived-gh-actions.fish"
     url:
-      verified: "github.com/toozej/golang-starter/releases/download"
+      verified: "github.com/toozej/go-find-archived-gh-actions/releases/download"
     hooks:
       post:
         install: |
           if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/golang-starter"]
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/go-find-archived-gh-actions"]
           end
 
 sboms:
@@ -278,4 +278,4 @@ milestones:
 release:
   disable: '{{ eq (envOrDefault "GORELEASER_DOCKER_REFRESH" "false") "true" }}'
   footer: |
-    **Full Changelog**: https://github.com/toozej/golang-starter/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/toozej/go-find-archived-gh-actions/compare/{{ .PreviousTag }}...{{ .Tag }}

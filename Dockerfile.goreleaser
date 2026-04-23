@@ -2,6 +2,6 @@
 FROM scratch
 # Copy our static executable.
 ARG TARGETPLATFORM
-COPY $TARGETPLATFORM/golang-starter /go/bin/golang-starter
+COPY $TARGETPLATFORM/go-find-archived-gh-actions /go/bin/go-find-archived-gh-actions
 # Run the binary.
-ENTRYPOINT ["/go/bin/golang-starter"]
+ENTRYPOINT ["/go/bin/go-find-archived-gh-actions"]

@@ -1,4 +1,4 @@
-module github.com/toozej/golang-starter
+module github.com/toozej/go-find-archived-gh-actions
 
 go 1.26
 
