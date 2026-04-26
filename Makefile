@@ -40,7 +40,7 @@ else
 	OPENER=open
 endif
 
-.PHONY: all vet test build verify run up down distroless-build distroless-run install local local-vet local-test local-cover local-run local-kill local-iterate local-release-test local-release local-sign local-verify local-release-verify local-install get-cosign-pub-key docker-login pre-commit-install pre-commit-run pre-commit pre-reqs update-golang-version upload-secrets-to-gh upload-secrets-envfile-to-1pass docs diagrams mutation-test test-changed watch-test profile-cpu profile-mem profile-all benchmark clean help
+.PHONY: all vet test build verify run up down distroless-build distroless-run install local local-vet local-test local-cover local-run local-kill local-iterate local-release-test local-release local-sign local-verify local-release-verify local-install get-cosign-pub-key docker-login pre-commit-install pre-commit-run pre-commit pre-reqs update-golang-version upload-secrets-to-gh upload-secrets-envfile-to-1pass docs diagrams mutation-test test-changed watch-test profile-cpu profile-mem profile-all benchmark clean example-demo help
 
 all: vet pre-commit clean test build verify run ## Run default workflow via Docker
 local: local-update-deps local-vendor local-vet pre-commit clean local-test local-cover local-build local-sign local-verify local-kill local-run ## Run default workflow using locally installed Golang toolchain
@@ -264,14 +264,14 @@ watch-test: ## Watch for file changes and run tests for changed packages
 profile-cpu: ## Generate CPU performance profile
 	@echo "Generating CPU profile..."
 	mkdir -p $(CURDIR)/profiles
-	go test -bench=. -cpuprofile=$(CURDIR)/profiles/cpu.prof $(CURDIR)/internal/starter/
+	go test -bench=. -cpuprofile=$(CURDIR)/profiles/cpu.prof $(CURDIR)/internal/
 	@echo "CPU profile generated at $(CURDIR)/profiles/cpu.prof"
 	go tool pprof -http $(CURDIR)/profiles/cpu.prof
 
 profile-mem: ## Generate memory performance profile
 	@echo "Generating memory profile..."
 	mkdir -p $(CURDIR)/profiles
-	go test -bench=. -memprofile=$(CURDIR)/profiles/mem.prof $(CURDIR)/internal/starter/
+	go test -bench=. -memprofile=$(CURDIR)/profiles/mem.prof $(CURDIR)/internal/
 	@echo "Memory profile generated at $(CURDIR)/profiles/mem.prof"
 	go tool pprof -http $(CURDIR)/profiles/mem.prof
 
@@ -279,11 +279,14 @@ profile-all: profile-cpu profile-mem ## Generate both CPU and memory profiles
 
 benchmark: ## Run benchmarks
 	@echo "Running benchmarks..."
-	go test -bench=. -benchmem $(CURDIR)/internal/starter/
+	go test -bench=. -benchmem $(CURDIR)/internal/
 
 clean: ## Remove any locally compiled binaries and profiles
 	rm -f $(CURDIR)/out/go-find-archived-gh-actions
 	rm -rf $(CURDIR)/profiles/
+
+example-demo: local-build ## Run the built binary against example workflow to demo functionality
+	-$(CURDIR)/out/go-find-archived-gh-actions --workflow $(CURDIR)/example/workflows/example-archived-actions.yaml --verbose --check-outdated
 
 help: ## Display help text
 	@grep -E '^[a-zA-Z_-]+ ?:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

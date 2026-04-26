@@ -1,0 +1,8 @@
+---
+  - id: go-find-archived-gh-actions
+    name: Check for archived GitHub Actions
+    description: Detect archived GitHub Actions in repository workflows
+    entry: go-find-archived-gh-actions
+    language: golang
+    files: \.(yml|yaml)$
+    pass_filenames: false

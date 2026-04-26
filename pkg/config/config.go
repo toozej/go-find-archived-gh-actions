@@ -42,18 +42,55 @@ import (
 // environment variable names for automatic parsing.
 //
 // Currently supported configuration:
-//   - Username: The username for the application, loaded from USERNAME env var
+//   - GitHubToken: GitHub API token for API calls, loaded from GH_TOKEN env var
+//   - GitHubTokenFallback: Fallback GitHub token from GITHUB_TOKEN env var
+//   - Notification: Detailed configuration for notification providers
+//   - CreateIssues: Whether to create GitHub issues when archived actions are found
 //
 // Example:
 //
 //	type Config struct {
-//		Username string `env:"USERNAME"`
+//		GitHubToken string `env:"GH_TOKEN"`
+//		GitHubTokenFallback string `env:"GITHUB_TOKEN"`
+//		Notification NotificationConfig
+//		CreateIssues bool `env:"CREATE_ISSUES" envDefault:"false"`
 //	}
+type NotificationConfig struct {
+	GotifyEndpoint string `env:"GOTIFY_ENDPOINT"`
+	GotifyToken    string `env:"GOTIFY_TOKEN"`
+
+	SlackToken     string `env:"SLACK_TOKEN"`
+	SlackChannelID string `env:"SLACK_CHANNEL_ID"`
+
+	TelegramToken  string `env:"TELEGRAM_TOKEN"`
+	TelegramChatID int64  `env:"TELEGRAM_CHAT_ID"`
+
+	DiscordToken     string `env:"DISCORD_TOKEN"`
+	DiscordChannelID string `env:"DISCORD_CHANNEL_ID"`
+
+	PushoverToken       string `env:"PUSHOVER_TOKEN"`
+	PushoverRecipientID string `env:"PUSHOVER_RECIPIENT_ID"`
+
+	PushbulletToken          string `env:"PUSHBULLET_TOKEN"`
+	PushbulletDeviceNickname string `env:"PUSHBULLET_DEVICE_NICKNAME"`
+
+	Condense bool `env:"NOTIFY_CONDENSE" envDefault:"false"`
+}
+
 type Config struct {
-	// Username specifies the username for application operations.
-	// It is loaded from the USERNAME environment variable.
-	// If not set, defaults to empty string.
-	Username string `env:"USERNAME"`
+	// GitHubToken specifies the GitHub API token for making API calls.
+	// It is loaded from the GH_TOKEN environment variable.
+	GitHubToken string `env:"GH_TOKEN"`
+
+	// GitHubTokenFallback is a fallback token loaded from GITHUB_TOKEN.
+	GitHubTokenFallback string `env:"GITHUB_TOKEN"`
+
+	// Notification specifies configuration for all supported notification providers.
+	Notification NotificationConfig
+
+	// CreateIssues specifies whether to create GitHub issues in the repository
+	// when archived actions are found.
+	CreateIssues bool `env:"CREATE_ISSUES" envDefault:"false"`
 }
 
 // GetEnvVars loads and returns the application configuration from environment
@@ -64,7 +101,8 @@ type Config struct {
 //  2. Constructs and validates the .env file path to prevent traversal attacks
 //  3. Loads .env file if it exists in the current directory
 //  4. Parses environment variables into the Config struct
-//  5. Returns the populated configuration
+//  5. Merges GitHub tokens (GH_TOKEN takes priority over GITHUB_TOKEN)
+//  6. Returns the populated configuration
 //
 // Security measures implemented:
 //   - Path traversal detection and prevention using filepath.Rel
@@ -89,51 +127,56 @@ type Config struct {
 //	conf := config.GetEnvVars()
 //
 //	// Use configuration
-//	if conf.Username != "" {
-//		fmt.Printf("Hello, %s!\n", conf.Username)
+//	if conf.GitHubToken != "" {
+//		fmt.Printf("GitHub token configured\n")
 //	}
+var osExit = os.Exit
+
 func GetEnvVars() Config {
-	// Get current working directory for secure file operations
+	conf, err := loadConfig()
+	if err != nil {
+		fmt.Println(err)
+		osExit(1)
+	}
+	return conf
+}
+
+func loadConfig() (Config, error) {
+	var conf Config
+
 	cwd, err := os.Getwd()
 	if err != nil {
-		fmt.Printf("Error getting current working directory: %s\n", err)
-		os.Exit(1)
+		return conf, fmt.Errorf("error getting current working directory: %w", err)
 	}
 
-	// Construct secure path for .env file within current directory
 	envPath := filepath.Join(cwd, ".env")
 
-	// Ensure the path is within our expected directory (prevent traversal)
 	cleanEnvPath, err := filepath.Abs(envPath)
 	if err != nil {
-		fmt.Printf("Error resolving .env file path: %s\n", err)
-		os.Exit(1)
+		return conf, fmt.Errorf("error resolving .env file path: %w", err)
 	}
 	cleanCwd, err := filepath.Abs(cwd)
 	if err != nil {
-		fmt.Printf("Error resolving current directory: %s\n", err)
-		os.Exit(1)
+		return conf, fmt.Errorf("error resolving current directory: %w", err)
 	}
 	relPath, err := filepath.Rel(cleanCwd, cleanEnvPath)
 	if err != nil || strings.Contains(relPath, "..") {
-		fmt.Printf("Error: .env file path traversal detected\n")
-		os.Exit(1)
+		return conf, fmt.Errorf(".env file path traversal detected")
 	}
 
-	// Load .env file if it exists
 	if _, err := os.Stat(envPath); err == nil {
 		if err := godotenv.Load(envPath); err != nil {
-			fmt.Printf("Error loading .env file: %s\n", err)
-			os.Exit(1)
+			return conf, fmt.Errorf("error loading .env file: %w", err)
 		}
 	}
 
-	// Parse environment variables into config struct
-	var conf Config
 	if err := env.Parse(&conf); err != nil {
-		fmt.Printf("Error parsing environment variables: %s\n", err)
-		os.Exit(1)
+		return conf, fmt.Errorf("error parsing environment variables: %w", err)
 	}
 
-	return conf
+	if conf.GitHubToken == "" && conf.GitHubTokenFallback != "" {
+		conf.GitHubToken = conf.GitHubTokenFallback
+	}
+
+	return conf, nil
 }

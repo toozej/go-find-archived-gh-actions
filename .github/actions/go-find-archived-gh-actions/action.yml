@@ -1,0 +1,93 @@
+---
+name: 'Find Archived GitHub Actions'
+description: 'Detect archived GitHub Actions in repository workflows'
+author: 'toozej'
+inputs:
+  token:
+    description: 'GitHub token for API access'
+    required: true
+  verbose:
+    description: 'Enable verbose output'
+    required: false
+    default: 'false'
+  debug:
+    description: 'Enable debug logging'
+    required: false
+    default: 'false'
+  workflow:
+    description: 'Path to specific workflow file to check (optional, checks all if not specified)'
+    required: false
+  notify:
+    description: 'Send notifications to configured endpoints'
+    required: false
+    default: 'false'
+  create-issue:
+    description: 'Create GitHub issue when archived actions are found'
+    required: false
+    default: 'false'
+  notification-endpoints:
+    description: 'Comma-separated list of notification endpoints (required if notify=true)'
+    required: false
+outputs:
+  archived-count:
+    description: 'Number of archived actions found'
+    value: ${{ steps.check.outputs.archived-count }}
+  has-archived:
+    description: 'Whether any archived actions were found (true/false)'
+    value: ${{ steps.check.outputs.has-archived }}
+runs:
+  using: 'docker'
+  image: 'docker://ghcr.io/toozej/go-find-archived-gh-actions:latest'
+  args:
+    - ${{ inputs.verbose == 'true' && '--verbose' || '' }}
+    - ${{ inputs.debug == 'true' && '--debug' || '' }}
+    - ${{ inputs.workflow && format('--workflow={0}', inputs.workflow) || '' }}
+    - ${{ inputs.notify == 'true' && '--notify' || '' }}
+    - ${{ inputs.create-issue == 'true' && '--create-issue' || '' }}
+  env:
+    GH_TOKEN: ${{ inputs.token }}
+    NOTIFICATION_ENDPOINTS: ${{ inputs.notification-endpoints }}
+    CREATE_ISSUES: ${{ inputs.create-issue }}
+
+# Example usage in a workflow:
+#
+# name: Check for Archived Actions
+# on:
+#   schedule:
+#     - cron: '0 0 * * 0'  # Weekly on Sundays
+#   workflow_dispatch:
+#
+# jobs:
+#   check-archived-actions:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+#
+#       - name: Check for archived GitHub Actions
+#         id: check
+#         uses: toozej/go-find-archived-gh-actions@main
+#         with:
+#           token: ${{ secrets.GITHUB_TOKEN }}
+#           verbose: true
+#           create-issue: true
+#
+#       - name: Comment on PR if archived actions found
+#         if: steps.check.outputs.has-archived == 'true'
+#         uses: actions/github-script@v7
+#         with:
+#           script: |
+#             github.rest.issues.createComment({
+#               issue_number: context.issue.number,
+#               owner: context.repo.owner,
+#               repo: context.repo.repo,
+#               body: `⚠️ Found ${process.env.ARCHIVED_COUNT} archived GitHub Actions in workflows. Please review and replace them with actively maintained alternatives.`
+#             })
+#         env:
+#           ARCHIVED_COUNT: ${{ steps.check.outputs.archived-count }}
+#
+#       - name: Fail if archived actions found
+#         if: steps.check.outputs.has-archived == 'true'
+#         run: |
+#           echo "❌ Archived GitHub Actions detected. Please replace them."
+#           exit 1
