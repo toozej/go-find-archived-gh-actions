@@ -40,21 +40,19 @@ import (
 	"github.com/toozej/go-find-archived-gh-actions/pkg/version"
 )
 
-// conf holds the application configuration loaded from environment variables.
-// It is populated during package initialization and can be modified by command-line flags.
 var (
 	conf          config.Config
 	debug         bool
 	verbose       bool
 	workflowPath  string
+	workflowsDir  string
+	reposDir      string
 	githubToken   string
 	notify        bool
 	createIssue   bool
 	checkOutdated bool
 )
 
-// rootCmd defines the base command for the go-find-archived-gh-actions CLI application.
-// It detects archived GitHub Actions in repository workflows.
 var rootCmd = &cobra.Command{
 	Use:   "go-find-archived-gh-actions",
 	Short: "Detect archived GitHub Actions in repository workflows",
@@ -71,18 +69,14 @@ Exit codes:
 	Run:              rootCmdRun,
 }
 
-// rootCmdRun is the main execution function for the root command.
-// It implements the core logic for detecting archived GitHub Actions.
 func rootCmdRun(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 
-	// Determine working directory
 	workDir, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("Failed to get working directory: %v", err)
 	}
 
-	// Get GitHub token
 	token := conf.GitHubToken
 	if token == "" {
 		token = conf.GitHubTokenFallback
@@ -94,7 +88,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal("GitHub token not provided. Set GH_TOKEN or GITHUB_TOKEN environment variable, or use --token flag")
 	}
 
-	// Initialize components
 	parser := workflow.NewParser()
 	ghClient := github.NewClient(token)
 	var notifier *notification.NotificationManager
@@ -112,24 +105,39 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		issueCreator = issue.NewIssueCreator(token)
 	}
 
-	// Find workflows
+	if reposDir != "" {
+		reposDir = expandPath(reposDir, workDir)
+		runReposMode(ctx, parser, ghClient, notifier, issueCreator, reposDir, workDir)
+		return
+	}
+
 	var workflowFiles []*workflow.WorkflowFile
 	var allActionRefs []workflow.ActionRef
 
-	if workflowPath != "" {
-		// Check specific workflow file
-		if !filepath.IsAbs(workflowPath) {
-			workflowPath = filepath.Join(workDir, workflowPath)
-		}
-
+	switch {
+	case workflowPath != "":
+		workflowPath = expandPath(workflowPath, workDir)
 		workflowFile, err := parser.ParseWorkflowFile(workflowPath)
 		if err != nil {
 			log.Fatalf("Failed to parse workflow file %s: %v", workflowPath, err)
 		}
 		workflowFiles = append(workflowFiles, workflowFile)
 		allActionRefs = append(allActionRefs, workflowFile.UsesWithVersions...)
-	} else {
-		// Find all workflow files
+	case workflowsDir != "":
+		workflowsDir = expandPath(workflowsDir, workDir)
+		files, err := parser.FindWorkflowFilesInDir(workflowsDir)
+		if err != nil {
+			log.Fatalf("Failed to find workflow files in %s: %v", workflowsDir, err)
+		}
+		workflows, err := parser.ParseWorkflowFiles(files)
+		if err != nil {
+			log.Fatalf("Failed to parse workflow files: %v", err)
+		}
+		workflowFiles = workflows
+		for _, wf := range workflows {
+			allActionRefs = append(allActionRefs, wf.UsesWithVersions...)
+		}
+	default:
 		actionRefs, workflows, err := parser.GetAllUsesFromRepoWithVersions(workDir)
 		if err != nil {
 			log.Fatalf("Failed to find workflow files: %v", err)
@@ -138,6 +146,52 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		allActionRefs = actionRefs
 	}
 
+	processWorkflows(ctx, parser, ghClient, notifier, issueCreator, workflowFiles, allActionRefs, workDir)
+}
+
+func runReposMode(ctx context.Context, parser *workflow.WorkflowParser, ghClient *github.Client, notifier *notification.NotificationManager, issueCreator *issue.IssueCreator, reposDir, workDir string) {
+	repos, err := parser.FindReposWithWorkflows(reposDir)
+	if err != nil {
+		log.Fatalf("Failed to find repos with workflows: %v", err)
+	}
+
+	if len(repos) == 0 {
+		fmt.Println("No repositories with .github/workflows found in the specified directory")
+		return
+	}
+
+	if verbose {
+		fmt.Printf("Found %d repositories with workflow files\n", len(repos))
+	}
+
+	hasAnyIssues := false
+	for _, repoPath := range repos {
+		fmt.Printf("\n📁 Scanning: %s\n", repoPath)
+		fmt.Println(strings.Repeat("-", len(repoPath)+10))
+
+		actionRefs, workflows, err := parser.GetAllUsesFromRepoWithVersions(repoPath)
+		if err != nil {
+			log.Errorf("Failed to find workflow files in %s: %v", repoPath, err)
+			continue
+		}
+
+		if len(actionRefs) == 0 {
+			fmt.Println("No GitHub Actions found in workflows")
+			continue
+		}
+
+		hasIssues := processWorkflows(ctx, parser, ghClient, notifier, issueCreator, workflows, actionRefs, repoPath)
+		if hasIssues {
+			hasAnyIssues = true
+		}
+	}
+
+	if hasAnyIssues {
+		os.Exit(1)
+	}
+}
+
+func processWorkflows(ctx context.Context, parser *workflow.WorkflowParser, ghClient *github.Client, notifier *notification.NotificationManager, issueCreator *issue.IssueCreator, workflowFiles []*workflow.WorkflowFile, allActionRefs []workflow.ActionRef, workDir string) bool {
 	if verbose {
 		fmt.Printf("Found %d workflow files\n", len(workflowFiles))
 		for _, wf := range workflowFiles {
@@ -153,10 +207,9 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 
 	if len(allActionRefs) == 0 {
 		fmt.Println("No GitHub Actions found in workflows")
-		return
+		return false
 	}
 
-	// Get unique owner/repo list for archived check
 	ownerRepos := make([]string, 0, len(allActionRefs))
 	seen := make(map[string]bool)
 	for _, ref := range allActionRefs {
@@ -166,7 +219,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Check GitHub API for archived status
 	fmt.Printf("Checking %d action repositories for archived status...\n", len(ownerRepos))
 
 	archived, errors := ghClient.CheckMultipleRepos(ctx, ownerRepos)
@@ -178,7 +230,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Collect archived actions with workflow context
 	var archivedActions []issue.ArchivedActionInfo
 	var archivedRepos []string
 
@@ -195,13 +246,10 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Remove duplicates from archivedRepos
 	archivedRepos = removeDuplicates(archivedRepos)
 
-	// Check for outdated actions if requested
 	var outdatedActions []OutdatedActionInfo
 	if checkOutdated {
-		// Filter out archived repos for outdated check
 		var nonArchivedRepos []string
 		for _, ref := range allActionRefs {
 			if isArchived, exists := archived[ref.OwnerRepo]; !exists || !isArchived {
@@ -221,10 +269,8 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 				}
 			}
 
-			// Check each action for outdated status
 			for _, wf := range workflowFiles {
 				for _, ref := range wf.UsesWithVersions {
-					// Skip archived actions
 					if isArchived, exists := archived[ref.OwnerRepo]; exists && isArchived {
 						continue
 					}
@@ -234,9 +280,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 						continue
 					}
 
-					// Check if current ref is a major version tag and same major as latest
 					if ver.IsMajorVersionTag(ref.Version) && ver.SameMajorVersion(ref.Version, release.TagName) {
-						// Compare commit SHAs to determine if major version tag is up to date
 						same, _, _, err := ghClient.CompareRefSHAs(ctx, ref.OwnerRepo, ref.Version, release.TagName)
 						if err != nil {
 							if verbose {
@@ -244,11 +288,9 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 							}
 							continue
 						}
-						// If SHAs are the same, the major version tag points to latest, so not outdated
 						if same {
 							continue
 						}
-						// SHAs differ, so the major version tag is outdated
 						outdatedActions = append(outdatedActions, OutdatedActionInfo{
 							OwnerRepo:  ref.OwnerRepo,
 							CurrentRef: ref.Version,
@@ -260,7 +302,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 						continue
 					}
 
-					// Standard version comparison for non-major-version tags
 					isOutdated, err := ver.IsVersionOutdated(ref.Version, release.TagName)
 					if err != nil {
 						if verbose {
@@ -284,19 +325,16 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Report findings
 	hasIssues := len(archivedActions) > 0 || len(outdatedActions) > 0
 
 	if !hasIssues {
 		fmt.Println("✅ No archived or outdated GitHub Actions found!")
-		return
+		return false
 	}
 
-	// Report archived actions
 	if len(archivedActions) > 0 {
 		fmt.Printf("\n🚨 Found %d archived GitHub Actions in %d workflows:\n\n", len(archivedRepos), len(archivedActions))
 
-		// Group by workflow
 		workflowMap := make(map[string][]issue.ArchivedActionInfo)
 		for _, action := range archivedActions {
 			workflowMap[action.Workflow] = append(workflowMap[action.Workflow], action)
@@ -311,7 +349,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Report outdated actions
 	if len(outdatedActions) > 0 {
 		uniqueOutdated := make(map[string]bool)
 		for _, action := range outdatedActions {
@@ -320,7 +357,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 
 		fmt.Printf("\n⚠️  Found %d outdated GitHub Actions in %d uses:\n\n", len(uniqueOutdated), len(outdatedActions))
 
-		// Group by workflow
 		outdatedWorkflowMap := make(map[string][]OutdatedActionInfo)
 		for _, action := range outdatedActions {
 			outdatedWorkflowMap[action.Workflow] = append(outdatedWorkflowMap[action.Workflow], action)
@@ -335,12 +371,9 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Get repository name for notifications/issues
 	repoName := getRepoName(workDir)
 
-	// Send notifications if enabled
 	if notifier != nil && len(archivedActions) > 0 {
-		// Convert to notification types
 		var notificationActions []notification.ArchivedActionInfo
 		for _, action := range archivedActions {
 			notificationActions = append(notificationActions, notification.ArchivedActionInfo{
@@ -354,7 +387,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Create GitHub issue if enabled
 	if issueCreator != nil && repoName != "" && len(archivedActions) > 0 {
 		parts := strings.Split(repoName, "/")
 		if len(parts) == 2 {
@@ -365,17 +397,17 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Exit with error code if issues found
 	if len(archivedActions) > 0 {
 		fmt.Println("\n❌ Archived actions detected. Please replace them with actively maintained alternatives.")
-		os.Exit(1)
+		return true
 	} else if len(outdatedActions) > 0 {
 		fmt.Println("\n⚠️  Outdated actions detected. Consider updating to the latest versions.")
-		os.Exit(1)
+		return true
 	}
+
+	return false
 }
 
-// OutdatedActionInfo contains information about an outdated action.
 type OutdatedActionInfo struct {
 	OwnerRepo  string
 	CurrentRef string
@@ -385,14 +417,12 @@ type OutdatedActionInfo struct {
 	FullRef    string
 }
 
-// rootCmdPreRun performs setup operations before executing the root command.
 func rootCmdPreRun(cmd *cobra.Command, args []string) {
 	if debug {
 		log.SetLevel(log.DebugLevel)
 	}
 }
 
-// Execute starts the command-line interface execution.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err.Error())
@@ -400,30 +430,42 @@ func Execute() {
 	}
 }
 
-// init initializes the command-line interface during package loading.
 func init() {
-	// get configuration from environment variables
 	conf = config.GetEnvVars()
 
-	// persistent flags
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Enable debug-level logging")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed output")
 
-	// command flags
 	rootCmd.Flags().StringVarP(&workflowPath, "workflow", "w", "", "Path to specific workflow file to check")
+	rootCmd.Flags().StringVar(&workflowsDir, "workflows-dir", "", "Path to directory containing workflow yaml files")
+	rootCmd.Flags().StringVar(&reposDir, "repos-dir", "", "Path to base directory containing multiple repos to scan")
 	rootCmd.Flags().StringVarP(&githubToken, "token", "t", "", "GitHub token (overrides GH_TOKEN/GITHUB_TOKEN env vars)")
 	rootCmd.Flags().BoolVar(&notify, "notify", false, "Send notifications to configured endpoints")
 	rootCmd.Flags().BoolVar(&createIssue, "create-issue", false, "Create GitHub issue when archived actions found")
 	rootCmd.Flags().BoolVar(&checkOutdated, "check-outdated", false, "Check for outdated action versions")
 
-	// add sub-commands
 	rootCmd.AddCommand(
 		man.NewManCmd(),
 		version.Command(),
 	)
 }
 
-// removeDuplicates removes duplicate strings from a slice.
+func expandPath(path, workDir string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalf("Failed to get user home directory: %v", err)
+		}
+		return filepath.Join(home, path[2:])
+	}
+
+	if filepath.IsAbs(path) {
+		return path
+	}
+
+	return filepath.Join(workDir, path)
+}
+
 func removeDuplicates(slice []string) []string {
 	keys := make(map[string]bool)
 	var result []string
@@ -436,9 +478,6 @@ func removeDuplicates(slice []string) []string {
 	return result
 }
 
-// getRepoName attempts to determine the repository name from the git remote.
 func getRepoName(workDir string) string {
-	// This is a simple implementation - could be enhanced to parse git config
-	// For now, we'll use a placeholder or try to extract from path
-	return "current-repo" // TODO: Implement proper repo name detection
+	return "current-repo"
 }

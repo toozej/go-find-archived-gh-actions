@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -44,10 +46,63 @@ func TestRemoveDuplicates(t *testing.T) {
 }
 
 func TestGetRepoName(t *testing.T) {
-	// Currently getRepoName always returns "current-repo"
 	expected := "current-repo"
 	result := getRepoName("/some/fake/path")
 	if result != expected {
 		t.Errorf("getRepoName() = %v, want %v", result, expected)
+	}
+}
+
+func TestExpandPath(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("Failed to get user home directory: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		path     string
+		workDir  string
+		expected string
+	}{
+		{
+			name:     "tilde expansion",
+			path:     "~/some/path",
+			workDir:  "/some/workdir",
+			expected: filepath.Join(home, "some/path"),
+		},
+		{
+			name:     "tilde with subdirectory",
+			path:     "~/src/github/repo/.github/workflows",
+			workDir:  "/current/dir",
+			expected: filepath.Join(home, "src/github/repo/.github/workflows"),
+		},
+		{
+			name:     "absolute path unchanged",
+			path:     "/absolute/path/to/dir",
+			workDir:  "/some/workdir",
+			expected: "/absolute/path/to/dir",
+		},
+		{
+			name:     "relative path joined with workDir",
+			path:     "relative/path",
+			workDir:  "/base/dir",
+			expected: "/base/dir/relative/path",
+		},
+		{
+			name:     "simple relative path",
+			path:     ".github/workflows",
+			workDir:  "/home/user/repo",
+			expected: "/home/user/repo/.github/workflows",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := expandPath(tt.path, tt.workDir)
+			if result != tt.expected {
+				t.Errorf("expandPath(%q, %q) = %q, want %q", tt.path, tt.workDir, result, tt.expected)
+			}
+		})
 	}
 }

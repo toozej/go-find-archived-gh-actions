@@ -43,14 +43,20 @@ func NewParser() *WorkflowParser {
 // FindWorkflowFiles finds all GitHub Actions workflow files in the repository.
 // It looks for .github/workflows/**/*.yml and .github/workflows/**/*.yaml files.
 func (p *WorkflowParser) FindWorkflowFiles(rootDir string) ([]string, error) {
+	workflowsDir := filepath.Join(rootDir, ".github", "workflows")
+	return p.FindWorkflowFilesInDir(workflowsDir)
+}
+
+// FindWorkflowFilesInDir finds all GitHub Actions workflow files in a specific directory.
+// It looks for *.yml and *.yaml files directly in the directory (non-recursive by default).
+func (p *WorkflowParser) FindWorkflowFilesInDir(dir string) ([]string, error) {
 	var workflowFiles []string
 
-	workflowsDir := filepath.Join(rootDir, ".github", "workflows")
-	if _, err := os.Stat(workflowsDir); os.IsNotExist(err) {
-		return workflowFiles, nil // No workflows directory, return empty
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return workflowFiles, nil
 	}
 
-	err := filepath.Walk(workflowsDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -63,10 +69,36 @@ func (p *WorkflowParser) FindWorkflowFiles(rootDir string) ([]string, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to walk workflows directory: %w", err)
+		return nil, fmt.Errorf("failed to walk directory: %w", err)
 	}
 
 	return workflowFiles, nil
+}
+
+// FindReposWithWorkflows finds directories under a base directory that contain .github/workflows.
+// Returns a list of paths to repos that have workflow files.
+func (p *WorkflowParser) FindReposWithWorkflows(baseDir string) ([]string, error) {
+	var repos []string
+
+	entries, err := os.ReadDir(baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read base directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		repoPath := filepath.Join(baseDir, entry.Name())
+		workflowsDir := filepath.Join(repoPath, ".github", "workflows")
+
+		if _, err := os.Stat(workflowsDir); err == nil {
+			repos = append(repos, repoPath)
+		}
+	}
+
+	return repos, nil
 }
 
 // ParseWorkflowFile parses a single workflow file and extracts all 'uses:' references.

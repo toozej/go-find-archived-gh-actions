@@ -387,3 +387,99 @@ func TestWorkflowParser_GetAllUsesFromRepo(t *testing.T) {
 		t.Errorf("Expected 0 uses and files, got %d and %d", len(uses_all), len(files))
 	}
 }
+
+func TestWorkflowParser_FindWorkflowFilesInDir(t *testing.T) {
+	parser := NewParser()
+
+	tmpDir := t.TempDir()
+
+	files, err := parser.FindWorkflowFilesInDir(tmpDir)
+	if err != nil {
+		t.Fatalf("FindWorkflowFilesInDir failed for empty dir: %v", err)
+	}
+	if len(files) != 0 {
+		t.Errorf("Expected 0 files from nonexistent directory, got %d", len(files))
+	}
+
+	testFiles := []string{"ci.yml", "release.yaml", "test.yml", "not-a-workflow.txt"}
+	for _, file := range testFiles {
+		path := filepath.Join(tmpDir, file)
+		content := "name: test\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n"
+		if file == "not-a-workflow.txt" {
+			content = "not yaml"
+		}
+		err := os.WriteFile(path, []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write test file %s: %v", file, err)
+		}
+	}
+
+	files, err = parser.FindWorkflowFilesInDir(tmpDir)
+	if err != nil {
+		t.Fatalf("FindWorkflowFilesInDir failed: %v", err)
+	}
+
+	if len(files) != 3 {
+		t.Errorf("Expected 3 workflow files, got %d", len(files))
+	}
+}
+
+func TestWorkflowParser_FindReposWithWorkflows(t *testing.T) {
+	parser := NewParser()
+
+	tmpDir := t.TempDir()
+
+	repos, err := parser.FindReposWithWorkflows(tmpDir)
+	if err != nil {
+		t.Fatalf("FindReposWithWorkflows failed: %v", err)
+	}
+	if len(repos) != 0 {
+		t.Errorf("Expected 0 repos from empty directory, got %d", len(repos))
+	}
+
+	repo1 := filepath.Join(tmpDir, "repo1")
+	repo2 := filepath.Join(tmpDir, "repo2")
+	repo3 := filepath.Join(tmpDir, "repo3-no-workflows")
+
+	for _, repo := range []string{repo1, repo2, repo3} {
+		if err := os.MkdirAll(repo, 0755); err != nil {
+			t.Fatalf("Failed to create repo directory %s: %v", repo, err)
+		}
+	}
+
+	workflowsDir1 := filepath.Join(repo1, ".github", "workflows")
+	workflowsDir2 := filepath.Join(repo2, ".github", "workflows")
+
+	for _, dir := range []string{workflowsDir1, workflowsDir2} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("Failed to create workflows directory %s: %v", dir, err)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(workflowsDir1, "ci.yml"), []byte("name: test\n"), 0644); err != nil {
+		t.Fatalf("Failed to write workflow file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workflowsDir2, "release.yml"), []byte("name: test\n"), 0644); err != nil {
+		t.Fatalf("Failed to write workflow file: %v", err)
+	}
+
+	repos, err = parser.FindReposWithWorkflows(tmpDir)
+	if err != nil {
+		t.Fatalf("FindReposWithWorkflows failed: %v", err)
+	}
+
+	if len(repos) != 2 {
+		t.Errorf("Expected 2 repos with workflows, got %d", len(repos))
+	}
+
+	repoPaths := make(map[string]bool)
+	for _, repo := range repos {
+		repoPaths[repo] = true
+	}
+	if !repoPaths[repo1] || !repoPaths[repo2] {
+		t.Errorf("Expected repo1 and repo2 to be found, got %v", repos)
+	}
+	if repoPaths[repo3] {
+		t.Errorf("repo3 should not be found as it has no workflows")
+	}
+}

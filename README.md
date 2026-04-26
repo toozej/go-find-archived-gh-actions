@@ -54,6 +54,12 @@ go-find-archived-gh-actions
 # Check a specific workflow file
 go-find-archived-gh-actions --workflow .github/workflows/ci.yml
 
+# Check a specific directory of workflow files
+go-find-archived-gh-actions --workflows-dir ~/src/github/username/repo/.github/workflows
+
+# Check multiple repos in a base directory (bulk scanning)
+go-find-archived-gh-actions --repos-dir ~/src/github
+
 # Verbose output
 go-find-archived-gh-actions --verbose
 
@@ -62,6 +68,15 @@ go-find-archived-gh-actions --debug
 
 # Check for outdated actions (not archived, but not latest version)
 go-find-archived-gh-actions --check-outdated
+```
+
+### Path Expansion
+
+All path inputs support `~` expansion to your home directory:
+
+```bash
+go-find-archived-gh-actions --workflows-dir ~/src/github/repo/.github/workflows
+go-find-archived-gh-actions --repos-dir ~/src/github
 ```
 
 ### Authentication
@@ -243,6 +258,8 @@ When using `--check-outdated`, the tool intelligently handles major version tags
 | `NOTIFY_CONDENSE` | - | Condense multiple notifications into one (true/false) |
 | - | `--notify` | Enable notifications to configured endpoints |
 | - | `--workflow`, `-w` | Path to specific workflow file to check |
+| - | `--workflows-dir` | Path to directory containing workflow yaml files |
+| - | `--repos-dir` | Path to base directory containing multiple repos to scan |
 | - | `--check-outdated` | Check for outdated action versions |
 | - | `--verbose`, `-v` | Show detailed output |
 | - | `--debug`, `-d` | Enable debug-level logging |
