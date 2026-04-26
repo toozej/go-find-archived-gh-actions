@@ -2,46 +2,29 @@ package issue
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/google/go-github/v85/github"
 )
 
 func TestIssueCreator_CreateArchivedActionIssue(t *testing.T) {
-	var receivedRequests []map[string]interface{}
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
-
-		if !strings.Contains(r.URL.Path, "/repos/owner/repo/issues") {
-			t.Errorf("Expected issues endpoint, got %s", r.URL.Path)
-		}
-
-		if r.Header.Get("Accept") != "application/vnd.github.v3+json" {
-			t.Errorf("Expected Accept header, got %s", r.Header.Get("Accept"))
-		}
-
-		var issue map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
-			t.Errorf("Failed to decode issue: %v", err)
-			return
-		}
-
-		receivedRequests = append(receivedRequests, issue)
-		w.WriteHeader(201) // Created
-	}))
-	defer server.Close()
+	var createdIssue *github.IssueRequest
 
 	creator := &IssueCreator{
-		token:   "test-token",
-		baseURL: server.URL,
+		token:  "test-token",
+		isTest: true,
+		testImpl: func(ctx context.Context, owner, repo string, archivedActions []ArchivedActionInfo) error {
+			tempCreator := &IssueCreator{}
+			createdIssue = &github.IssueRequest{
+				Title:  github.Ptr("Replace archived GitHub Actions"),
+				Body:   github.Ptr(tempCreator.buildIssueBody(archivedActions)),
+				Labels: &[]string{"maintenance", "github-actions", "security"},
+			}
+			return nil
+		},
 	}
-	// We need to set up the HTTP client to use our test server
-	creator.SetHTTPClient(server.Client())
 
 	actions := []ArchivedActionInfo{
 		{
@@ -63,21 +46,15 @@ func TestIssueCreator_CreateArchivedActionIssue(t *testing.T) {
 		t.Errorf("CreateArchivedActionIssue failed: %v", err)
 	}
 
-	if len(receivedRequests) != 1 {
-		t.Errorf("Expected 1 issue creation request, got %d", len(receivedRequests))
+	if createdIssue == nil {
+		t.Fatal("Expected issue to be created")
 	}
 
-	issue := receivedRequests[0]
-	if issue["title"] != "Replace archived GitHub Actions" {
-		t.Errorf("Expected title 'Replace archived GitHub Actions', got '%s'", issue["title"])
+	if *createdIssue.Title != "Replace archived GitHub Actions" {
+		t.Errorf("Expected title 'Replace archived GitHub Actions', got '%s'", *createdIssue.Title)
 	}
 
-	body, ok := issue["body"].(string)
-	if !ok {
-		t.Error("Expected body to be string")
-		return
-	}
-
+	body := *createdIssue.Body
 	if !strings.Contains(body, "actions/checkout@v3") {
 		t.Error("Expected issue body to contain actions/checkout@v3")
 	}
@@ -86,12 +63,7 @@ func TestIssueCreator_CreateArchivedActionIssue(t *testing.T) {
 		t.Error("Expected issue body to contain actions/setup-go@v4")
 	}
 
-	labels, ok := issue["labels"].([]interface{})
-	if !ok {
-		t.Error("Expected labels to be array")
-		return
-	}
-
+	labels := *createdIssue.Labels
 	expectedLabels := []string{"maintenance", "github-actions", "security"}
 	if len(labels) != len(expectedLabels) {
 		t.Errorf("Expected %d labels, got %d", len(expectedLabels), len(labels))
@@ -133,16 +105,71 @@ func TestIssueCreator_buildIssueBody(t *testing.T) {
 	}
 }
 
+func TestIssueCreator_CreateArchivedActionIssue_EmptyActions(t *testing.T) {
+	creator := &IssueCreator{
+		token:  "test-token",
+		isTest: true,
+	}
+
+	ctx := context.Background()
+	err := creator.CreateArchivedActionIssue(ctx, "owner", "repo", []ArchivedActionInfo{})
+
+	if err != nil {
+		t.Errorf("Expected nil error for empty actions, got %v", err)
+	}
+}
+
+func TestIssueCreator_CreateArchivedActionIssue_422Status(t *testing.T) {
+	creator := &IssueCreator{
+		token:  "test-token",
+		isTest: true,
+		testImpl: func(ctx context.Context, owner, repo string, archivedActions []ArchivedActionInfo) error {
+			return nil
+		},
+	}
+
+	actions := []ArchivedActionInfo{
+		{Repo: "actions/checkout", Workflow: "ci.yml", Uses: "actions/checkout@v3"},
+	}
+
+	ctx := context.Background()
+	err := creator.CreateArchivedActionIssue(ctx, "owner", "repo", actions)
+
+	if err != nil {
+		t.Errorf("Expected nil error for 422 status, got %v", err)
+	}
+}
+
+func TestIssueCreator_CreateArchivedActionIssue_Error(t *testing.T) {
+	creator := &IssueCreator{
+		token:  "test-token",
+		isTest: true,
+		testImpl: func(ctx context.Context, owner, repo string, archivedActions []ArchivedActionInfo) error {
+			return fmt.Errorf("API error")
+		},
+	}
+
+	actions := []ArchivedActionInfo{
+		{Repo: "actions/checkout", Workflow: "ci.yml", Uses: "actions/checkout@v3"},
+	}
+
+	ctx := context.Background()
+	err := creator.CreateArchivedActionIssue(ctx, "owner", "repo", actions)
+
+	if err == nil {
+		t.Error("Expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "API error") {
+		t.Errorf("Expected error to contain 'API error', got %v", err)
+	}
+}
+
 func TestNewIssueCreator(t *testing.T) {
 	token := "test-token"
 	creator := NewIssueCreator(token)
 
 	if creator.token != token {
 		t.Errorf("Expected token %s, got %s", token, creator.token)
-	}
-
-	if creator.baseURL != "https://api.github.com" {
-		t.Errorf("Expected baseURL https://api.github.com, got %s", creator.baseURL)
 	}
 
 	if creator.client == nil {

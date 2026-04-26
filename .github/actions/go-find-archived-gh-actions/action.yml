@@ -46,6 +46,7 @@ runs:
     - ${{ inputs.create-issue == 'true' && '--create-issue' || '' }}
   env:
     GH_TOKEN: ${{ inputs.token }}
+    GITHUB_REPOSITORY: ${{ github.repository }}
     NOTIFICATION_ENDPOINTS: ${{ inputs.notification-endpoints }}
     CREATE_ISSUES: ${{ inputs.create-issue }}
 
@@ -72,22 +73,12 @@ runs:
 #           verbose: true
 #           create-issue: true
 #
-#       - name: Comment on PR if archived actions found
-#         if: steps.check.outputs.has-archived == 'true'
-#         uses: actions/github-script@v7
-#         with:
-#           script: |
-#             github.rest.issues.createComment({
-#               issue_number: context.issue.number,
-#               owner: context.repo.owner,
-#               repo: context.repo.repo,
-#               body: `⚠️ Found ${process.env.ARCHIVED_COUNT} archived GitHub Actions in workflows. Please review and replace them with actively maintained alternatives.`
-#             })
-#         env:
-#           ARCHIVED_COUNT: ${{ steps.check.outputs.archived-count }}
-#
 #       - name: Fail if archived actions found
 #         if: steps.check.outputs.has-archived == 'true'
 #         run: |
-#           echo "❌ Archived GitHub Actions detected. Please replace them."
+#           echo "Archived GitHub Actions detected. Please replace them."
 #           exit 1
+#
+# NOTE: The create-issue input creates a repository-level issue.
+# For PR-specific comments during pull request review, use the actions/github-script
+# action with steps.check.outputs.has-archived and steps.check.outputs.archived-count.

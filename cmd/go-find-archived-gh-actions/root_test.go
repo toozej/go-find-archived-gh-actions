@@ -46,8 +46,19 @@ func TestRemoveDuplicates(t *testing.T) {
 }
 
 func TestGetRepoName(t *testing.T) {
-	expected := "current-repo"
+	originalEnv := os.Getenv("GITHUB_REPOSITORY")
+	defer os.Setenv("GITHUB_REPOSITORY", originalEnv)
+
+	os.Unsetenv("GITHUB_REPOSITORY")
 	result := getRepoName("/some/fake/path")
+	expected := "current-repo"
+	if result != expected {
+		t.Errorf("getRepoName() = %v, want %v", result, expected)
+	}
+
+	os.Setenv("GITHUB_REPOSITORY", "owner/repo")
+	result = getRepoName("/some/fake/path")
+	expected = "owner/repo"
 	if result != expected {
 		t.Errorf("getRepoName() = %v, want %v", result, expected)
 	}

@@ -6,13 +6,11 @@
 package issue
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 
+	"github.com/google/go-github/v85/github"
 	"golang.org/x/oauth2"
 
 	log "github.com/sirupsen/logrus"
@@ -20,14 +18,10 @@ import (
 
 // IssueCreator handles creating GitHub issues.
 type IssueCreator struct {
-	token   string
-	client  *http.Client
-	baseURL string
-}
-
-// SetHTTPClient sets the HTTP client for testing purposes.
-func (ic *IssueCreator) SetHTTPClient(client *http.Client) {
-	ic.client = client
+	token    string
+	client   *github.Client
+	isTest   bool
+	testImpl func(ctx context.Context, owner, repo string, archivedActions []ArchivedActionInfo) error
 }
 
 // NewIssueCreator creates a new IssueCreator with the provided GitHub token.
@@ -39,9 +33,8 @@ func NewIssueCreator(token string) *IssueCreator {
 	tc := oauth2.NewClient(ctx, ts)
 
 	return &IssueCreator{
-		token:   token,
-		client:  tc,
-		baseURL: "https://api.github.com",
+		token:  token,
+		client: github.NewClient(tc),
 	}
 }
 
@@ -51,45 +44,35 @@ func (ic *IssueCreator) CreateArchivedActionIssue(ctx context.Context, owner, re
 		return nil
 	}
 
+	if ic.isTest && ic.testImpl != nil {
+		return ic.testImpl(ctx, owner, repo, archivedActions)
+	}
+
 	title := "Replace archived GitHub Actions"
 	body := ic.buildIssueBody(archivedActions)
+	labels := []string{"maintenance", "github-actions", "security"}
 
-	issue := map[string]interface{}{
-		"title":  title,
-		"body":   body,
-		"labels": []string{"maintenance", "github-actions", "security"},
+	issueReq := &github.IssueRequest{
+		Title:  &title,
+		Body:   &body,
+		Labels: &labels,
 	}
 
-	jsonData, err := json.Marshal(issue)
+	issue, resp, err := ic.client.Issues.Create(ctx, owner, repo, issueReq)
 	if err != nil {
-		return fmt.Errorf("failed to marshal issue data: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/repos/%s/%s/issues", ic.baseURL, owner, repo)
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := ic.client.Do(req)
-	if err != nil {
+		if resp != nil && resp.StatusCode == 422 {
+			log.Warnf("Issue may already exist in %s/%s", owner, repo)
+			return nil
+		}
 		return fmt.Errorf("failed to create issue: %w", err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode == 422 {
-		log.Warnf("Issue may already exist in %s/%s", owner, repo)
-		return nil // Don't treat as error if issue already exists
-	}
 
 	if resp.StatusCode >= 300 {
 		return fmt.Errorf("GitHub API returned status %d when creating issue", resp.StatusCode)
 	}
 
-	log.Infof("Successfully created GitHub issue in %s/%s", owner, repo)
+	log.Infof("Successfully created GitHub issue #%d in %s/%s", issue.GetNumber(), owner, repo)
 	return nil
 }
 

@@ -479,5 +479,8 @@ func removeDuplicates(slice []string) []string {
 }
 
 func getRepoName(workDir string) string {
+	if repo := os.Getenv("GITHUB_REPOSITORY"); repo != "" {
+		return repo
+	}
 	return "current-repo"
 }
